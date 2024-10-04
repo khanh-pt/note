@@ -1,7 +1,7 @@
-import { Typography, Button } from "@mui/material";
 import { GoogleAuthProvider, getAuth, signInWithPopup } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import CustomTypography from "../components/CustomTypography";
 export default function Login() {
   const [loginSucces, setLoginSuccess] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -35,16 +35,16 @@ export default function Login() {
 
   return (
     <>
-      <Typography variant="h4" sx={{ marginBottom: "10px" }}>
+      <CustomTypography variant="h4" className="mb-[10px]">
         Welcome to Note app
-      </Typography>
-      <Button variant="outlined" onClick={handleLoginWithGoogle}>
+      </CustomTypography>
+      <CustomTypography variant="button" onClick={handleLoginWithGoogle}>
         Login with Google
-      </Button>
+      </CustomTypography>
       <div className="mt-3">
-        <Typography variant="p" sx={{ color: "red" }}>
+        <CustomTypography variant="p" className="text-[#f00]">
           {loginError}
-        </Typography>
+        </CustomTypography>
       </div>
     </>
   );
