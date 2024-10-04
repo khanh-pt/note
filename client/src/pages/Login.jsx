@@ -41,7 +41,7 @@ export default function Login() {
       <Button variant="outlined" onClick={handleLoginWithGoogle}>
         Login with Google
       </Button>
-      <div className="">
+      <div className="mt-3">
         <Typography variant="p" sx={{ color: "red" }}>
           {loginError}
         </Typography>
