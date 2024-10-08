@@ -1,5 +1,6 @@
 import { Button, Typography } from "@mui/material";
 import { useNavigate, useRouteError } from "react-router-dom";
+import CustomTypography from "../components/CustomTypography";
 
 export default function ErrorPage() {
   const navigate = useNavigate();
@@ -7,8 +8,10 @@ export default function ErrorPage() {
 
   return (
     <>
-      <Typography variant="h2">{routeError.status} error</Typography>
-      <Typography variant="h4">{routeError.statusText}</Typography>
+      <CustomTypography variant="h2">
+        {routeError.status} error
+      </CustomTypography>
+      <CustomTypography variant="h4">{routeError.statusText}</CustomTypography>
       <Button variant="outlined" onClick={() => navigate("/")}>
         Home
       </Button>

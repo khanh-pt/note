@@ -1,0 +1,11 @@
+.DraftEditor-root {
+  position: relative;
+}
+
+.public-DraftEditorPlaceholder-root {
+  position: absolute;
+}
+
+.public-DraftEditorPlaceholder-root .public-DraftEditorPlaceholder-inner {
+  opacity: 0.3;
+}
