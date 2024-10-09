@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import useOnClickOutside from "../hooks/useOnClickOutside";
 
 export default function CustomDropdown({ children, items }) {
-  console.log(items.props.children);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
 
