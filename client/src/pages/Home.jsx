@@ -6,14 +6,12 @@ import CustomTypography from "../components/CustomTypography";
 
 export default function Home() {
   const { user } = useContext(AuthContext);
-  console.log({ user });
   return (
     <>
-      <CustomTypography variant="h1" className="text-[20px] p-4 font-bold">
-        Note App
-      </CustomTypography>
-
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between mt-4">
+        <CustomTypography variant="h1" className="text-[20px] font-bold">
+          Note App
+        </CustomTypography>
         <CustomDropdown
           items={
             <>

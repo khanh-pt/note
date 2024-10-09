@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Editor,
   EditorState,
@@ -29,94 +29,6 @@ import useOnClickOutside from "../hooks/useOnClickOutside";
 import clsx from "clsx";
 import "../styles/customEditor.css";
 
-const styles = {
-  editor: {
-    base: "bg-white border ring-0 rounded-lg transition-all duration-200",
-    answer: "bg-white rounded-lg transition-all duration-200",
-    question: "bg-gray-100 rounded-lg transition-all duration-200",
-  },
-  states: {
-    enabled:
-      "border-gray-300 ring-primary-50 focus-within:border-primary-300 focus-within:ring-4",
-    error: "border border-error-300 ring-red-100 focus-within:ring-4",
-  },
-  toolbar: {
-    base: "flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-300",
-    answer:
-      "flex flex-wrap items-center gap-2 px-4 py-3 rounded-lg border border-gray-300",
-    question:
-      "bg-gray-200 flex flex-wrap items-center gap-2 px-4 py-3 rounded-lg",
-  },
-  urlInputContainer:
-    "absolute z-elevate bg-white border border-gray-300 rounded p-3",
-  urlInput:
-    "px-2 py-1 outline-none border border-gray-300 rounded focus:border-primary-400",
-  link: "text-blue-500 underline",
-  button: {
-    base: "inline-block text-gray-700 p-1 rounded",
-    active: "bg-primary-50 text-primary-500",
-  },
-  block: {
-    left: "text-left",
-    center: "text-center",
-    right: "text-right",
-    ul: "list-disc ml-5",
-    ol: "list-decimal ml-5",
-    blockquote: "border-l-4 border-primary-300 py-1.5 px-4 my-2",
-    codeBlock: "bg-primary-300 text-white p-4 rounded",
-  },
-};
-
-const styleMap = {
-  CODE: {
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    fontSize: 16,
-    padding: 4,
-    borderRadius: "4px",
-  },
-};
-
-const getBlockStyle = (block) => {
-  switch (block.getType()) {
-    case "left":
-      return styles.block.left;
-    case "center":
-      return styles.block.center;
-    case "right":
-      return styles.block.right;
-    case "unordered-list-item":
-      return styles.block.ul;
-    case "ordered-list-item":
-      return styles.block.ol;
-    case "blockquote":
-      return styles.block.blockquote;
-    case "code-block":
-      return styles.block.codeBlock;
-    default:
-      return null;
-  }
-};
-
-const findLinkEntities = (contentBlock, callback, contentState) => {
-  contentBlock.findEntityRanges((character) => {
-    const entityKey = character.getEntity();
-    return (
-      entityKey !== null &&
-      contentState.getEntity(entityKey).getType() === "LINK"
-    );
-  }, callback);
-};
-
-const Link = ({ contentState, entityKey, children }) => {
-  const { url } = contentState.getEntity(entityKey).getData();
-
-  return (
-    <a href={url} className={styles.link}>
-      {children}
-    </a>
-  );
-};
-
 export default function CustomEditor({
   label,
   placeholder = "Enter a description",
@@ -124,31 +36,81 @@ export default function CustomEditor({
   isRequired = false,
   defaultValue,
 }) {
-  const decorator = new CompositeDecorator([
-    {
-      strategy: findLinkEntities,
-      component: Link,
-    },
-  ]);
-  console.log({ defaultValue });
   const initialState = defaultValue
     ? () =>
-        EditorState.moveFocusToEnd(
-          EditorState.createWithContent(defaultValue, decorator)
-        )
-    : () => EditorState.createEmpty(decorator);
+        EditorState.moveFocusToEnd(EditorState.createWithContent(defaultValue))
+    : () => EditorState.createEmpty();
   const [editorState, setEditorState] = useState(initialState);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [urlValue, setUrlValue] = useState("");
+  const [showInputLink, setShowInputLink] = useState(false);
+
+  const [inputLinkValue, setInputLinkValue] = useState("");
+  const [errorInputLink, setErrorInputLink] = useState("");
+  const [error, setError] = useState("");
   const editorRef = useRef(null);
-  const inputRef = useRef(null);
-  const inputContainerRef = useRef(null);
+  const inputLinkRef = useRef(null);
+  const inputLinkContainerRef = useRef(null);
   const contentState = editorState.getCurrentContent();
-  console.log({ contentState });
+  // console.log({ contentState_out: contentState });
 
-  const onClose = () => setShowUrlInput(false);
+  useOnClickOutside({
+    ref: inputLinkContainerRef,
+    handler: () => setShowInputLink(false),
+  });
 
-  useOnClickOutside(inputContainerRef, onClose);
+  const getBlockStyle = (block) => {
+    switch (block.getType()) {
+      case "left":
+        return "text-left";
+      case "center":
+        return "text-center";
+      case "right":
+        return "text-right";
+      case "unordered-list-item":
+        return "list-disc ml-5";
+      case "ordered-list-item":
+        return "list-decimal ml-5";
+      case "blockquote":
+        return "border-l-4 border-primary-300 py-1.5 px-4 my-2";
+      case "code-block":
+        return "bg-primary-300 text-white p-4 rounded";
+      default:
+        return null;
+    }
+  };
+
+  const CUSTOM_ENTITY = {
+    LINK: "LINK",
+    EMBED: "EMBED",
+    VIDEO: "VIDEO",
+    IMAGE: "IMAGE",
+    FILE: "FILE",
+  };
+
+  const CustomEntity = ({ block, blockProps, contentState }) => {
+    const entity = contentState.getEntity(block.getEntityAt(0));
+
+    const entityType = entity.getType();
+    const entityData = entity.getData();
+
+    switch (entityType) {
+      case CUSTOM_ENTITY.LINK:
+        return (
+          <a href={entityData.url} className="text-blue-500 underline">
+            {block.getText()}
+          </a>
+        );
+
+      default:
+        return <></>;
+    }
+  };
+
+  const isLink = (str) => {
+    const pattern =
+      /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/;
+
+    return !!pattern.test(str);
+  };
 
   const onChange = (editorState) => {
     setEditorState(editorState);
@@ -160,80 +122,92 @@ export default function CustomEditor({
     }
   };
 
-  const onURLChange = (event) => setUrlValue(event.target.value);
-
-  const onLinkInputKeyDown = (event) => {
-    if (event.which === 13) {
-      confirmLink(event);
-    }
+  const handleChangeInputLinkValue = (event) => {
+    setInputLinkValue(event.target.value);
+    setErrorInputLink("");
+    setTimeout(() => {
+      inputLinkRef.current && inputLinkRef.current.focus();
+    }, 0);
   };
 
-  const promptForLink = (event) => {
+  const handleEnter = (event) => {
+    if (event.which === 13) {
+      handleAddLink();
+    }
+  };
+  const handleClickCustomAddLink = () => {
+    event.stopPropagation();
+    const selection = editorState.getSelection();
+    console.log({ selection: selection.isCollapsed() });
+    if (selection.isCollapsed()) {
+      setError("You need to select text for add link");
+      setTimeout(() => {
+        setError("");
+      }, 3000);
+      return;
+    }
+
+    const contentState = editorState.getCurrentContent();
+    const startKey = selection.getStartKey();
+    const startOffset = selection.getStartOffset();
+    const blockWithLinkAtBeginning = contentState.getBlockForKey(startKey);
+    const linkKey = blockWithLinkAtBeginning.getEntityAt(startOffset);
+    let url = "";
+
+    if (linkKey) {
+      const linkInstance = contentState.getEntity(linkKey);
+      url = linkInstance.getData().url;
+    }
+
+    setShowInputLink((prev) => !prev);
+    setInputLinkValue(url);
+    setTimeout(() => {
+      inputLinkRef.current && inputLinkRef.current.focus();
+    }, 0);
+  };
+
+  const handleClickCustomRemoveLink = () => {
     event.preventDefault();
     const selection = editorState.getSelection();
-
-    if (!selection.isCollapsed()) {
-      const contentState = editorState.getCurrentContent();
-      const startKey = editorState.getSelection().getStartKey();
-      const startOffset = editorState.getSelection().getStartOffset();
-      const blockWithLinkAtBeginning = contentState.getBlockForKey(startKey);
-      const linkKey = blockWithLinkAtBeginning.getEntityAt(startOffset);
-      let url = "";
-
-      if (linkKey) {
-        const linkInstance = contentState.getEntity(linkKey);
-        url = linkInstance.getData().url;
-      }
-
-      setShowUrlInput(true);
-      setUrlValue(url);
-      setTimeout(() => inputRef.current && inputRef.current.focus(), 0);
+    if (selection.isCollapsed()) {
+      setError("You need to select link for remove");
+      setTimeout(() => {
+        setError("");
+      }, 3000);
+      return;
     }
-  };
 
-  const confirmLink = (event) => {
-    event.preventDefault();
-    const contentState = editorState.getCurrentContent();
-
-    const contentStateWithEntity = contentState.createEntity(
-      "LINK",
-      "MUTABLE",
-      { url: urlValue }
-    );
-    const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
-
-    let nextEditorState = EditorState.set(editorState, {
-      currentContent: contentStateWithEntity,
-    });
-
-    nextEditorState = RichUtils.toggleLink(
-      nextEditorState,
-      nextEditorState.getSelection(),
-      entityKey
-    );
-
-    setEditorState(nextEditorState);
-    setShowUrlInput(false);
-    setUrlValue("");
+    setEditorState(RichUtils.toggleLink(editorState, selection, null));
     setTimeout(() => editorRef.current && editorRef.current.focus(), 0);
   };
 
-  const removeLink = (event) => {
-    event.preventDefault();
-    const selection = editorState.getSelection();
-    if (!selection.isCollapsed()) {
-      setEditorState(RichUtils.toggleLink(editorState, selection, null));
+  const handleAddLink = () => {
+    if (!isLink(inputLinkValue)) {
+      setErrorInputLink("Link not valid");
+      return;
     }
-  };
 
-  const checkContent = () => {
-    console.log({ contentState });
-    // if (!contentState.hasText()) {
-    //   if (contentState.getBlockMap().first().getType() !== "unstyled") {
-    //     return true;
-    //   }
-    //   return false;
-    // }
+    const contentState = editorState.getCurrentContent();
+    const newEntity = contentState.createEntity("LINK", "MUTABLE", {
+      url: inputLinkValue,
+    });
+    const entityKey = newEntity.getLastCreatedEntityKey();
+    console.log({ entityKey });
+
+    let newEditorState = EditorState.set(editorState, {
+      currentContent: newEntity,
+    });
+
+    newEditorState = RichUtils.toggleLink(
+      newEditorState,
+      newEditorState.getSelection(),
+      entityKey
+    );
+
+    setEditorState(newEditorState);
+    setShowInputLink(false);
+    setInputLinkValue("");
+    setTimeout(() => editorRef.current && editorRef.current.focus(), 0);
   };
 
   const handleKeyCommand = (command, editorState) => {
@@ -259,7 +233,12 @@ export default function CustomEditor({
 
   const EDITOR_CONTROLS = [
     { icon: TextBolder, label: "Bold", style: "BOLD", type: "inlineStyle" },
-    { icon: TextItalic, label: "Italic", style: "ITALIC", type: "inlineStyle" },
+    {
+      icon: TextItalic,
+      label: "Italic",
+      style: "ITALIC",
+      type: "inlineStyle",
+    },
     {
       icon: TextUnderline,
       label: "Underline",
@@ -272,7 +251,15 @@ export default function CustomEditor({
       style: "STRIKETHROUGH",
       type: "inlineStyle",
     },
-    { icon: CodeSimple, label: "Code", style: "CODE", type: "inlineStyle" },
+    {
+      icon: CodeSimple,
+      label: "Code",
+      style: "CODE",
+      type: "inlineStyle",
+    },
+    {
+      type: "divide",
+    },
     {
       icon: TextAlignLeft,
       label: "Text left",
@@ -309,70 +296,141 @@ export default function CustomEditor({
       style: "blockquote",
       type: "blockType",
     },
-    { icon: Code, label: "Code block", style: "code-block", type: "blockType" },
+    {
+      icon: Code,
+      label: "Code block",
+      style: "code-block",
+      type: "blockType",
+    },
+    {
+      type: "divide",
+    },
+    {
+      icon: LinkSimple,
+      label: "Add link",
+      type: "customAddLink",
+    },
+    {
+      icon: LinkBreak,
+      label: "Remove link",
+      type: "customRemoveLink",
+    },
   ];
 
   const handleClickEditorControl = ({ controlType, style }) => {
-    if (controlType === "inlineStyle") {
-      console.log({ style });
-      onChange(RichUtils.toggleInlineStyle(editorState, style));
-    } else {
-      onChange(RichUtils.toggleBlockType(editorState, style));
+    switch (controlType) {
+      case "inlineStyle":
+        onChange(RichUtils.toggleInlineStyle(editorState, style));
+        break;
+      case "blockType":
+        onChange(RichUtils.toggleBlockType(editorState, style));
+        break;
+      case "customAddLink":
+        handleClickCustomAddLink();
+        break;
+      case "customRemoveLink":
+        handleClickCustomRemoveLink();
+        break;
+
+      default:
+        break;
     }
   };
 
   const EditorControl = ({ control, active }) => {
     return (
-      <span
-        className={clsx(
-          "cursor-pointer inline-block p-1 border",
-          active && "bg-[#eee]"
+      <div className="relative">
+        <CustomTooltip title={control.label}>
+          <div
+            className={clsx(
+              "cursor-pointer p-1 border rounded-[8px]",
+              active && "bg-[#eee]"
+            )}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleClickEditorControl({
+                controlType: control.type,
+                style: control.style,
+              });
+            }}
+          >
+            <control.icon size={20} weight="light" />
+          </div>
+        </CustomTooltip>
+        {showInputLink && control.type === "customAddLink" && (
+          <div
+            ref={inputLinkContainerRef}
+            className="absolute left-1/2 -translate-x-1/2 z-[1] bg-primary-100 border p-4 rounded-[8px] mt-[5px]"
+          >
+            <div className="flex items-center gap-2">
+              <label htmlFor="inputLink">Link</label>
+              <input
+                id="inputLink"
+                ref={inputLinkRef}
+                value={inputLinkValue}
+                className="px-2 py-1 outline-none border border-primary-300 rounded-[8px] focus:border-primary-400"
+                type="text"
+                onChange={handleChangeInputLinkValue}
+                onKeyDown={handleEnter}
+              />
+              <button
+                className="px-2 py-1 border rounded-[8px]"
+                onClick={handleAddLink}
+              >
+                Add
+              </button>
+            </div>
+            {errorInputLink && (
+              <div className="mt-2 text-center text-error">
+                {errorInputLink}
+              </div>
+            )}
+
+            <div className="absolute left-1/2 -translate-x-1/2 top-0 -translate-y-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-primary-300 transform"></div>
+          </div>
         )}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          handleClickEditorControl({
-            controlType: control.type,
-            style: control.style,
-          });
-        }}
-      >
-        <control.icon size={20} />
-      </span>
+      </div>
     );
   };
 
   const renderEditorControl = () => {
     return (
-      <div className="flex gap-2 p-2 border-b">
-        {EDITOR_CONTROLS.map((control, index) => {
-          const checkActive = () => {
-            if (control.type === "inlineStyle") {
-              const currentStyle = editorState.getCurrentInlineStyle();
-              console.log({
-                currentStyle,
-                "currentStyle.has(control.style)": currentStyle.has(
-                  control.style
-                ),
-              });
-              return currentStyle.has(control.style);
-            } else {
-              const selection = editorState.getSelection();
-              const blockType = editorState
-                .getCurrentContent()
-                .getBlockForKey(selection.getStartKey())
-                .getType();
-              return control.style === blockType;
-            }
-          };
+      <div className="p-2 border-b border-primary-300">
+        <div className="flex gap-2">
+          {EDITOR_CONTROLS.map((control, index) => {
+            const checkActive = () => {
+              if (control.type === "inlineStyle") {
+                const currentStyle = editorState.getCurrentInlineStyle();
+                return currentStyle.has(control.style);
+              } else if (control.type === "blockType") {
+                const selection = editorState.getSelection();
+                const blockType = editorState
+                  .getCurrentContent()
+                  .getBlockForKey(selection.getStartKey())
+                  .getType();
+                return control.style === blockType;
+              }
+            };
 
-          return (
-            <EditorControl
-              key={index}
-              control={control}
-              active={checkActive()}
-            />
-          );
-        })}
+            if (control.type === "divide") {
+              return (
+                <div
+                  key={index}
+                  className="w-0 border-r border-primary-300"
+                ></div>
+              );
+            }
+
+            return (
+              <EditorControl
+                key={index}
+                control={control}
+                active={checkActive()}
+              />
+            );
+          })}
+        </div>
+        {error && <div className="text-error mt-2">{error}</div>}
       </div>
     );
   };
@@ -389,81 +447,39 @@ export default function CustomEditor({
           {isRequired && <span className="text-red-500 ml-0.5">*</span>}
         </CustomTypography>
       )} */}
-      <div className="border border-primary-400 rounded-[8px] ring-primary-100 focus-within:border-primary-100 focus-within:ring-4">
-        {/* <div className={styles.toolbar}>
-          <InlineStyleControls
-            editorState={editorState}
-            onToggle={toggleInlineStyle}
-          />
-          <BlockStyleControls
-            editorState={editorState}
-            onToggle={toggleBlockType}
-          />
-          <div className="relative leading-none">
-            <CustomTooltip
-              className="w-auto whitespace-nowrap"
-              title="Add link"
-            >
-              <span
-                role="button"
-                className={clsx(styles.button.base)}
-                onMouseUp={promptForLink}
-              >
-                <LinkSimple size={20} />
-              </span>
-            </CustomTooltip>
-            {showUrlInput && (
-              <div ref={inputContainerRef} className={styles.urlInputContainer}>
-                <label>
-                  <div className="font-medium text-gray-700 text-sm mb-0.5">
-                    URL
-                  </div>
-                  <input
-                    onChange={onURLChange}
-                    ref={inputRef}
-                    className={styles.urlInput}
-                    type="text"
-                    value={urlValue}
-                    onKeyDown={onLinkInputKeyDown}
-                  />
-                </label>
-                <div className="flex justify-end">
-                  <CustomButton
-                    className="mt-2"
-                    size="xs"
-                    onMouseUp={confirmLink}
-                  >
-                    Insert
-                  </CustomButton>
-                </div>
-              </div>
-            )}
-          </div>
-          <CustomTooltip
-            className="w-auto whitespace-nowrap"
-            title="Remove link"
-          >
-            <span
-              role="button"
-              className={clsx(styles.button.base)}
-              onMouseUp={removeLink}
-            >
-              <LinkBreak size={20} />
-            </span>
-          </CustomTooltip>
-        </div> */}
-        {renderEditorControl({ editorState, onChange })}
-        <div className={clsx("p-2 text-left h-[200px]")} onClick={onFocus}>
+      <div className="border border-primary-300 rounded-[8px] focus-within:border-primary-500">
+        {renderEditorControl()}
+        <div
+          className={clsx("p-2 text-left overflow-y-auto")}
+          style={{ minHeight: "300px", maxHeight: "300px" }}
+          onClick={onFocus}
+        >
           <Editor
             blockStyleFn={getBlockStyle}
-            customStyleMap={styleMap}
             editorState={editorState}
             handleKeyCommand={handleKeyCommand}
             keyBindingFn={handleKeyBindingFn}
             onChange={onChange}
             placeholder={placeholder}
             ref={editorRef}
-            // spellCheck={true}
+            blockRendererFn={(contentBlock) => {
+              if (!contentBlock.getEntityAt(0)) return;
+              const entity = editorState
+                .getCurrentContent()
+                .getEntity(contentBlock.getEntityAt(0));
+
+              const entityType = entity.getType();
+              return {
+                component: CustomEntity,
+                editable: entityType === CUSTOM_ENTITY.LINK ? true : false,
+                props: {
+                  onRemove: (blockKey) => {
+                    const newState = deleteMediaBlock(blockKey, editorState);
+                    newState && setEditorState(newState);
+                  },
+                },
+              };
+            }}
           />
         </div>
       </div>
