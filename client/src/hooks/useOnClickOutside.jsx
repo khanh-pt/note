@@ -5,7 +5,6 @@ export default function useOnClickOutside({ ref, handler }) {
     const handleClickOutside = (e) => {
       const element = ref?.current;
       if (!element || element.contains(e.target)) {
-        console.log({ element });
         return;
       }
       handler(e);
