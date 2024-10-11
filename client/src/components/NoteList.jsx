@@ -19,6 +19,7 @@ export default function NoteList({ folder }) {
     <>
       <div className="flex gap-3">
         <div className="w-[200px] p-2 bg-primary-600 rounded-[8px]">
+          <div className="font-bold p-1 border-b mb-2">Notes</div>
           {!!notes?.length &&
             notes.map((note) => (
               <NoteItem

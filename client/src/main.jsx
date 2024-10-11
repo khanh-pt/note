@@ -11,12 +11,10 @@ import "./styles/index.css";
 
 import "./firebase/config.js";
 
-import { Container } from "@mui/material";
-
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <Container maxWidth="lg" sx={{ textAlign: "center" }}>
+    <div className="mx-[100px]">
       <RouterProvider router={router} />
-    </Container>
+    </div>
   </StrictMode>
 );
