@@ -1,6 +1,6 @@
 import { useState } from "react";
 import NoteItem from "./NoteItem";
-import CustomEditor from "./CustomEditor";
+import CustomEditor from "./CustomEditor/index";
 
 export default function NoteList({ folder }) {
   const [selectedNote, setSelectedNote] = useState(null);
