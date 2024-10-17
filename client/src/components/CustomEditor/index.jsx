@@ -14,7 +14,6 @@ export default function CustomEditor({
   isRequired = false,
   defaultValue,
 }) {
-  console.log("render editor");
   const initialState = defaultValue
     ? () =>
         EditorState.moveFocusToEnd(EditorState.createWithContent(defaultValue))
@@ -46,7 +45,6 @@ export default function CustomEditor({
   };
 
   const CustomEntity = ({ block, blockProps, contentState }) => {
-    console.log(123);
     const entity = contentState.getEntity(block.getEntityAt(0));
 
     const entityType = entity.getType();
@@ -68,6 +66,8 @@ export default function CustomEditor({
             sandbox="allow-scripts allow-same-origin allow-presentation"
           />
         );
+      case CUSTOM_ENTITY.IMAGE:
+        return <img src={entityData.src} className="w-[300px]" />;
 
       default:
         return <></>;
@@ -184,11 +184,7 @@ export default function CustomEditor({
       )} */}
       <div className="border border-primary-300 rounded-[8px] focus-within:border-primary-500">
         {renderEditorControl()}
-        <div
-          className={clsx("p-2 text-left overflow-y-auto")}
-          style={{ minHeight: "300px", maxHeight: "300px" }}
-          onClick={onFocus}
-        >
+        <div className={clsx("p-2 text-left")} onClick={onFocus}>
           <Editor
             blockStyleFn={getBlockStyle}
             editorState={editorState}

@@ -14,6 +14,7 @@ import {
   LinkBreak,
   LinkSimple,
   YoutubeLogo,
+  Image,
 } from "phosphor-react";
 
 export const CUSTOM_ENTITY = {
@@ -30,6 +31,7 @@ export const CONTROL_TYPE = {
   customAddLink: "customAddLink",
   customRemoveLink: "customRemoveLink",
   customEmbed: "customEmbed",
+  customUploadImage: "customUploadImage",
 };
 
 export const EDITOR_CONTROLS = [
@@ -126,7 +128,17 @@ export const EDITOR_CONTROLS = [
     label: "Embed",
     type: CONTROL_TYPE.customEmbed,
   },
+  {
+    icon: Image,
+    label: "Upload image",
+    type: CONTROL_TYPE.customUploadImage,
+  },
 ];
+
+export const ACCEPT_FILE_IMAGE = "image/png, image/gif, image/jpeg, image/webp";
+
+export const SIZE_10MB = 10 * 1024 * 1024;
+export const MAX_UPLOAD_IMAGE = 5;
 
 export const isLink = (str) => {
   const pattern =
@@ -140,4 +152,26 @@ export const isYoutubeEmbed = (str) => {
     /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
 
   return !!pattern.test(str);
+};
+
+export const getEntitiesByType = (editorState, entityType) => {
+  const contentState = editorState.getCurrentContent();
+  const entities = [];
+
+  contentState.getBlockMap().forEach((block) => {
+    block?.findEntityRanges(
+      (character) => {
+        const entityKey = character.getEntity();
+        const entity = entityKey ? contentState.getEntity(entityKey) : null;
+        return entity !== null && entityType.includes(entity.getType());
+      },
+      (start) => {
+        const entityKey = block.getEntityAt(start);
+        const entity = contentState.getEntity(entityKey);
+        entities.push(entity);
+      }
+    );
+  });
+
+  return entities;
 };
