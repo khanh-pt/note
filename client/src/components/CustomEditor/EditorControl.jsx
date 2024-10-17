@@ -4,8 +4,12 @@ import useOnClickOutside from "../../hooks/useOnClickOutside";
 import clsx from "clsx";
 import "../../styles/customEditor.css";
 import {
+  ACCEPT_FILE_IMAGE,
   CONTROL_TYPE,
   CUSTOM_ENTITY,
+  MAX_UPLOAD_IMAGE,
+  SIZE_10MB,
+  getEntitiesByType,
   isLink,
   isYoutubeEmbed,
 } from "./constant";
@@ -20,16 +24,16 @@ export default function EditorControl({
   editorError,
   setEditorError,
 }) {
-  console.log("render control");
   const [showInput, setShowInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [errorInput, setErrorInput] = useState("");
 
-  const inputRef = useRef(null);
-  const inputContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const textInputRef = useRef(null);
+  const textInputContainerRef = useRef(null);
 
   useOnClickOutside({
-    ref: inputContainerRef,
+    ref: textInputContainerRef,
     handler: () => setShowInput(false),
   });
 
@@ -82,6 +86,10 @@ export default function EditorControl({
 
   const handleClickCustomEmbed = () => {
     setShowInput(true);
+  };
+
+  const handleClickCustomUploadImage = () => {
+    fileInputRef.current?.click();
   };
 
   const handleAddValue = () => {
@@ -139,6 +147,47 @@ export default function EditorControl({
           )
         );
         break;
+      case CONTROL_TYPE.customUploadImage:
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.size > SIZE_10MB) {
+          setEditorError("Image too large (max 10mb)");
+          return;
+        }
+        if (
+          getEntitiesByType(editorState, CUSTOM_ENTITY.IMAGE).length >=
+          MAX_UPLOAD_IMAGE
+        ) {
+          setEditorError(
+            `The maximum number of uploaded image is ${MAX_UPLOAD_IMAGE}.`
+          );
+          return;
+        }
+        setEditorError("");
+
+        const objectURL = URL.createObjectURL(file);
+
+        newEntity = contentState.createEntity(
+          CUSTOM_ENTITY.IMAGE,
+          "IMMUTABLE",
+          {
+            src: objectURL,
+          }
+        );
+
+        entityKey = newEntity.getLastCreatedEntityKey();
+
+        newEditorState = EditorState.set(editorState, {
+          currentContent: newEntity,
+        });
+
+        setEditorState(
+          EditorState.forceSelection(
+            AtomicBlockUtils.insertAtomicBlock(newEditorState, entityKey, " "),
+            contentState.getSelectionAfter()
+          )
+        );
+        break;
 
       default:
         break;
@@ -168,6 +217,9 @@ export default function EditorControl({
       case CONTROL_TYPE.customEmbed:
         handleClickCustomEmbed();
         break;
+      case CONTROL_TYPE.customUploadImage:
+        handleClickCustomUploadImage();
+        break;
 
       default:
         break;
@@ -176,12 +228,12 @@ export default function EditorControl({
 
   useEffect(() => {
     if (showInput) {
-      inputRef.current?.focus();
+      textInputRef.current?.focus();
     }
   }, [showInput]);
 
   return (
-    <div className="relative" ref={inputContainerRef}>
+    <div className="relative" ref={textInputContainerRef}>
       <CustomTooltip title={control.label}>
         <div
           className={clsx(
@@ -194,6 +246,15 @@ export default function EditorControl({
           }}
         >
           <control.icon size={20} weight="light" />
+          {control.type === CONTROL_TYPE.customUploadImage && (
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept={ACCEPT_FILE_IMAGE}
+              className="hidden"
+              onChange={handleAddValue}
+            />
+          )}
         </div>
       </CustomTooltip>
       {showInput &&
@@ -207,7 +268,7 @@ export default function EditorControl({
               </label>
               <input
                 id="input"
-                ref={inputRef}
+                ref={textInputRef}
                 value={inputValue}
                 className="px-2 py-1 outline-none border border-primary-300 rounded-[8px] focus:border-primary-400"
                 type="text"

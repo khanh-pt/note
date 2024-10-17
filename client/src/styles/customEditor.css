@@ -1,5 +1,8 @@
 .DraftEditor-root {
   position: relative;
+  min-height: 300px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .public-DraftEditorPlaceholder-root {
