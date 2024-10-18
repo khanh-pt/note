@@ -1,11 +1,27 @@
 import React, { useRef, useState } from "react";
-import { Editor, EditorState, RichUtils, getDefaultKeyBinding } from "draft-js";
+import {
+  Editor,
+  EditorState,
+  RichUtils,
+  getDefaultKeyBinding,
+  convertToRaw,
+  convertFromRaw,
+  CompositeDecorator,
+  SelectionState,
+  Modifier,
+} from "draft-js";
 
 import clsx from "clsx";
 import "../../styles/customEditor.css";
 import EditorControl from "./EditorControl";
-import { CONTROL_TYPE, CUSTOM_ENTITY, EDITOR_CONTROLS } from "./constant";
+import {
+  CONTROL_TYPE,
+  CUSTOM_ENTITY,
+  EDITOR_CONTROLS,
+  isLink,
+} from "./constant";
 import { useEffect } from "react";
+import { Trash } from "phosphor-react";
 
 export default function CustomEditor({
   label,
@@ -14,10 +30,37 @@ export default function CustomEditor({
   isRequired = false,
   defaultValue,
 }) {
+  const linkDecorator = {
+    strategy: (contentBlock, callback, contentState) => {
+      contentBlock.findEntityRanges((character) => {
+        const entityKey = character.getEntity();
+        return (
+          entityKey !== null &&
+          contentState.getEntity(entityKey).getType() === CUSTOM_ENTITY.LINK
+        );
+      }, callback);
+    },
+    component: ({ contentState, entityKey, children }) => {
+      const { url, target = "_blank" } = contentState
+        .getEntity(entityKey)
+        .getData();
+
+      if (!isLink(url)) return url;
+
+      return (
+        <a href={url} target={target} className="text-blue-500 underline">
+          {children}
+        </a>
+      );
+    },
+  };
+  const decorator = new CompositeDecorator([linkDecorator]);
   const initialState = defaultValue
     ? () =>
-        EditorState.moveFocusToEnd(EditorState.createWithContent(defaultValue))
-    : () => EditorState.createEmpty();
+        EditorState.moveFocusToEnd(
+          EditorState.createWithContent(convertFromRaw(defaultValue), decorator)
+        )
+    : () => EditorState.createEmpty(decorator);
   const [editorState, setEditorState] = useState(initialState);
   const [editorError, setEditorError] = useState("");
 
@@ -44,34 +87,70 @@ export default function CustomEditor({
     }
   };
 
-  const CustomEntity = ({ block, blockProps, contentState }) => {
+  const handleSave = () => {
+    console.log({ editorStateeditorStateeditorState: editorState });
+    console.log({
+      convertToRaw: convertToRaw(editorState.getCurrentContent()),
+    });
+  };
+
+  const handleRemoveCustomBlock = ({ block, contentState }) => {
+    const blockKey = block.getKey();
+
+    const targetRange = new SelectionState({
+      anchorKey: blockKey,
+      anchorOffset: 0,
+      focusKey: blockKey,
+      focusOffset: 0,
+    });
+    contentState = Modifier.setBlockType(contentState, targetRange, "unstyled");
+    contentState = Modifier.removeRange(contentState, targetRange, "forward");
+
+    const newEditorState = EditorState.push(
+      editorState,
+      contentState,
+      "remove-range"
+    );
+    setEditorState(newEditorState);
+  };
+
+  const renderEntity = ({ entityType, entityData }) => {
+    switch (entityType) {
+      case CUSTOM_ENTITY.EMBED:
+        return (
+          <div className="flex items-end">
+            <iframe
+              src={entityData.src}
+              allowFullScreen
+              className="w-[300px] aspect-video"
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+            />
+          </div>
+        );
+      case CUSTOM_ENTITY.IMAGE:
+        return <img src={entityData.src} className="w-[300px]" />;
+      default:
+        return <></>;
+    }
+  };
+
+  const CustomBlock = ({ block, contentState }) => {
     const entity = contentState.getEntity(block.getEntityAt(0));
+    if (!entity) return;
 
     const entityType = entity.getType();
     const entityData = entity.getData();
 
-    switch (entityType) {
-      case CUSTOM_ENTITY.LINK:
-        return (
-          <a href={entityData.url} className="text-blue-500 underline">
-            {block.getText()}
-          </a>
-        );
-      case CUSTOM_ENTITY.EMBED:
-        return (
-          <iframe
-            src={entityData.src}
-            allowFullScreen
-            className="w-[300px] aspect-video"
-            sandbox="allow-scripts allow-same-origin allow-presentation"
-          />
-        );
-      case CUSTOM_ENTITY.IMAGE:
-        return <img src={entityData.src} className="w-[300px]" />;
-
-      default:
-        return <></>;
-    }
+    return (
+      <div className="flex items-end">
+        {renderEntity({ entityType, entityData })}
+        <Trash
+          size={20}
+          className="cursor-pointer"
+          onClick={() => handleRemoveCustomBlock({ block, contentState })}
+        />
+      </div>
+    );
   };
 
   const onChange = (editorState) => {
@@ -104,22 +183,11 @@ export default function CustomEditor({
   };
 
   const blockRendererFn = (contentBlock) => {
-    if (!contentBlock.getEntityAt(0)) return;
-    const entity = editorState
-      .getCurrentContent()
-      .getEntity(contentBlock.getEntityAt(0));
+    if (contentBlock.getType() !== "atomic") return;
 
-    const entityType = entity.getType();
     return {
-      component: CustomEntity,
-      editable: true,
-      editable: entityType === CUSTOM_ENTITY.LINK ? true : false,
-      props: {
-        onRemove: (blockKey) => {
-          const newState = deleteMediaBlock(blockKey, editorState);
-          newState && setEditorState(newState);
-        },
-      },
+      component: CustomBlock,
+      editable: false,
     };
   };
 
@@ -195,6 +263,9 @@ export default function CustomEditor({
             ref={editorRef}
             blockRendererFn={blockRendererFn}
           />
+        </div>
+        <div>
+          <button onClick={handleSave}>Save</button>
         </div>
       </div>
     </div>
